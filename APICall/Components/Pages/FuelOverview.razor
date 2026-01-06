@@ -102,7 +102,7 @@ else
 
             return sortOrder == "asc"
                 ? query.OrderBy(g => g.PriceValue ?? decimal.MaxValue)
-                : query.OrderByDescending(g => g.PriceValue ?? decimal.MinValueS);
+                : query.OrderByDescending(g => g.PriceValue ?? decimal.MinValue);
         }
     }
 
