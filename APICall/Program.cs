@@ -8,9 +8,11 @@ namespace APICall
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            builder.Services.AddHttpClient<APIService>();
             // Add services to the container.
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
+
 
             var app = builder.Build();
 

@@ -1,0 +1,125 @@
+﻿@page "/fuel-overview"
+@using APICall.Components.Models
+@inject APIService APIService
+
+<h1>FuelOverview</h1>
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <p class="text-danger">@ErrorMessage</p>
+}
+else if (dieselData == null || gasData == null)
+{
+    <p>Loading fuel data...</p>
+}
+else
+{
+    <div style="margin-bottom: 20px;">
+        <label>Fra dato: <input type="date" @bind="filterFrom" /></label>
+        <label style="margin-left: 10px;">Til dato: <input type="date" @bind="filterTo" /></label>
+        <label style="margin-left: 10px;">
+            Sortering:
+            <select @bind="sortOrder">
+                <option value="asc">Laveste først</option>
+                <option value="desc">Højeste først</option>
+            </select>
+        </label>
+    </div>
+
+    <div style="display: flex; gap: 20px;">
+        <div style="flex: 1; border: 1px solid #ccc; border-radius: 8px; padding: 15px; max-height: 350px; overflow-y: auto; background-color: #f9f9f9;">
+            <h3 style="margin-bottom: 10px;">Diesel</h3>
+            <p><strong>Billigst:</strong> @MinDieselPrice per gallon (@MinDieselDate)</p>
+            <p><strong>Dyrest:</strong> @MaxDieselPrice per gallon (@MaxDieselDate)</p>
+            <ul style="list-style: none; padding: 0;">
+                @foreach (var diesel in FilteredDiesel)
+                {
+                    <li style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #eee;">
+                        <span>@diesel.Date?.ToString("dd-MM-yyyy")</span>
+                        <span>@diesel.PriceValue per gallon</span>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <div style="flex: 1; border: 1px solid #ccc; border-radius: 8px; padding: 15px; max-height: 350px; overflow-y: auto; background-color: #f9f9f9;">
+            <h3 style="margin-bottom: 10px;">Gas</h3>
+            <p><strong>Billigst:</strong> @MinGasPrice per gallon (@MinGasDate)</p>
+            <p><strong>Dyrest:</strong> @MaxGasPrice per gallon (@MaxGasDate)</p>
+            <ul style="list-style: none; padding: 0;">
+                @foreach (var gas in FilteredGas)
+                {
+                    <li style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #eee;">
+                        <span>@gas.Date?.ToString("dd-MM-yyyy")</span>
+                        <span>@gas.PriceValue per gallon</span>
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Diesel>? dieselData;
+    private List<Gas>? gasData;
+    private string? ErrorMessage;
+
+    private DateTime? filterFrom;
+    private DateTime? filterTo;
+    private string sortOrder = "asc";
+
+    private decimal MinDieselPrice => dieselData!.Min(d => d.PriceValue ?? decimal.MaxValue);
+    private decimal MaxDieselPrice => dieselData!.Max(d => d.PriceValue ?? decimal.MinValue);
+    private string? MinDieselDate => dieselData!.OrderBy(d => d.PriceValue ?? decimal.MaxValue).FirstOrDefault()?.Date?.ToString("dd-MM-yyyy");
+    private string? MaxDieselDate => dieselData!.OrderByDescending(d => d.PriceValue ?? decimal.MinValue).FirstOrDefault()?.Date?.ToString("dd-MM-yyyy");
+
+    private decimal MinGasPrice => gasData!.Min(g => g.PriceValue ?? decimal.MaxValue);
+    private decimal MaxGasPrice => gasData!.Max(g => g.PriceValue ?? decimal.MinValue);
+    private string? MinGasDate => gasData!.OrderBy(g => g.PriceValue ?? decimal.MaxValue).FirstOrDefault()?.Date?.ToString("dd-MM-yyyy");
+    private string? MaxGasDate => gasData!.OrderByDescending(g => g.PriceValue ?? decimal.MinValue).FirstOrDefault()?.Date?.ToString("dd-MM-yyyy");
+
+    private IEnumerable<Diesel> FilteredDiesel
+    {
+        get
+        {
+            var query = dieselData!
+                .Where(d => !filterFrom.HasValue || (d.Date.HasValue && d.Date.Value.Date >= filterFrom.Value.Date))
+                .Where(d => !filterTo.HasValue || (d.Date.HasValue && d.Date.Value.Date <= filterTo.Value.Date));
+
+            return sortOrder == "asc"
+                ? query.OrderBy(d => d.PriceValue ?? decimal.MaxValue)
+                : query.OrderByDescending(d => d.PriceValue ?? decimal.MinValue);
+        }
+    }
+
+    private IEnumerable<Gas> FilteredGas
+    {
+        get
+        {
+            var query = gasData!
+                .Where(g => !filterFrom.HasValue || (g.Date.HasValue && g.Date.Value.Date >= filterFrom.Value.Date))
+                .Where(g => !filterTo.HasValue || (g.Date.HasValue && g.Date.Value.Date <= filterTo.Value.Date));
+
+            return sortOrder == "asc"
+                ? query.OrderBy(g => g.PriceValue ?? decimal.MaxValue)
+                : query.OrderByDescending(g => g.PriceValue ?? decimal.MinValueS);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        dieselData = await APIService.GetDieselDataAsync();
+        if (dieselData == null)
+        {
+            ErrorMessage = "Failed to load diesel data.";
+            return;
+        }
+
+        gasData = await APIService.GetGasDataAsync();
+        if (gasData == null)
+        {
+            ErrorMessage = "Failed to load gas data.";
+            return;
+        }
+    }
+}
