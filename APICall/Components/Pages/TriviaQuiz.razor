@@ -7,22 +7,26 @@
 
 @if (isLoading)
 {
-    <p>Henter spørgsmål…</p>
+    @* Loading state while fetching questions *@
+    <p>Loading questions…</p>
 }
 else if (!string.IsNullOrEmpty(error))
 {
+    @* Error state when the API call fails *@
     <div class="alert alert-danger">@error</div>
 }
 else if (showResult)
 {
-    <p>Du fik <strong>@score</strong> ud af <strong>@questions.Count</strong> rigtige.</p>
-    <button class="btn btn-primary" @onclick="Reload">Prøv igen</button>
+    @* Result state after the last question has been answered *@
+    <p>You got <strong>@score</strong> out of <strong>@questions.Count</strong> correct.</p>
+    <button class="btn btn-primary" @onclick="Reload">Try again</button>
 }
 else
 {
+    @* Normal state: show current question and its answer options *@
     var quest = questions[currentIndex];
 
-    <p><strong>Spørgsmål @((currentIndex + 1)) / @questions.Count</strong></p>
+    <p><strong>Question @((currentIndex + 1)) / @questions.Count</strong></p>
     <p>@quest.Question</p>
 
     <div class="answers">
@@ -30,6 +34,11 @@ else
         {
             var index = i;
 
+            @*
+              Each button represents an answer option.
+              Using a lambda captures the 'index' value correctly for the click handler
+              (avoids the classic closure issue in loops).
+            *@
             <button class="btn answer-btn"
                     @onclick="() => AnswerAndAdvance(index)">
                 @quest.Options[index].Text
@@ -38,86 +47,113 @@ else
     </div>
 
     <div style="margin-top: 0.75rem;">
+        @* 'Back' allows navigating to the previous question (disabled at index 0) *@
         <button class="btn btn-secondary"
                 disabled="@(currentIndex == 0)"
-                @onclick="Prev">
-            Tilbage
+                @onclick="Previous">
+            Back
         </button>
     </div>
 }
 
 @code {
+    // List of quiz questions (populated from the API)
     private List<QuizQuestion> questions = new();
-    private List<int?> selections = new();
-    private int currentIndex;
-    private int score;
-    private bool isLoading = true;
-    private bool showResult;
-    private string? error;
 
-    // Henter spørgsmål EFTER første render (krævet i InteractiveServer)
+    // The user's selection per question; null = not answered yet
+    private List<int?> selections = new();
+
+    // Zero-based index of the currently displayed question
+    private int currentIndex;
+
+    // Number of correct answers (computed at the end)
+    private int score;
+
+    // UI state flags
+    private bool isLoading = true;  // Show "Loading…" on initial load
+    private bool showResult;        // Controls whether the result section is shown
+    private string? error;          // Holds an error message when the API fails
+
+    // Runs AFTER the first render (required in InteractiveServer to have an interactive context)
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
             await Reload();
     }
 
+    // Fetches new questions and resets all state (used on first load and "Try again")
     private async Task Reload()
     {
         try
         {
-            isLoading = true;
-            showResult = false;
-            currentIndex = 0;
-            score = 0;
-            error = null;
+            isLoading = true;   // Enter loading state…
+            showResult = false; // Hide the result view
+            currentIndex = 0;   // Start from the first question
+            score = 0;          // Reset score
+            error = null;       // Clear previous errors
 
+            // Fetch 10 questions asynchronously via the injected API service
             questions = await Api.GetTriviaAsync(10);
+
+            // Prepare the selections list with the same length as 'questions' — all start as null
             selections = Enumerable.Repeat<int?>(null, questions.Count).ToList();
         }
         catch (Exception ex)
         {
-            error = $"Kunne ikke hente spørgsmål: {ex.Message}";
+            // Store a user-visible error message
+            error = $"Failed to fetch questions: {ex.Message}";
         }
         finally
         {
+            // Regardless of success/failure: leave loading state and refresh the UI
             isLoading = false;
             StateHasChanged();
         }
     }
-    private void Prev()
+
+    // Navigate one step back (cannot go below index 0)
+    private void Previous()
     {
         if (currentIndex > 0)
             currentIndex--;
     }
+
+    // Records the user's choice for the current question and advances
+    // (or shows the result if this was the last question)
     private void AnswerAndAdvance(int optionIndex)
     {
         var q = questions[currentIndex];
 
-        // Beskyttelse mod edge cases
+        // Guard against invalid clicks or out-of-range indices
         if (optionIndex < 0 || optionIndex >= q.Options.Count)
             return;
 
+        // Save the selected option for the current question
         selections[currentIndex] = optionIndex;
 
+        // If this was the final question, compute the score and show results
         if (currentIndex == questions.Count - 1)
         {
-            BeregnScore();
+            CalculateScore();
             showResult = true;
         }
         else
         {
+            // Otherwise, move to the next question
             currentIndex++;
         }
     }
-    private void BeregnScore()
+    // Counts how many selected answers are marked as correct
+    private void CalculateScore()
     {
         score = 0;
 
         for (int i = 0; i < questions.Count; i++)
         {
-            var sel = selections[i];
-            if (sel.HasValue && questions[i].Options[sel.Value].IsCorrect)
+            var select = selections[i];
+
+            // Only count if the user selected something and that option is correct
+            if (select.HasValue && questions[i].Options[select.Value].IsCorrect)
                 score++;
         }
     }

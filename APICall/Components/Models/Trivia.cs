@@ -10,10 +10,10 @@ namespace APICall.Components.Models
         public int ResponseCode { get; set; }
 
         [JsonPropertyName("results")]
-        public List<OpenTdbQuestionDto> Results { get; set; } = new();
+        public List<OpenTdbQuestion> Results { get; set; } = new();
     }
 
-    public class OpenTdbQuestionDto
+    public class OpenTdbQuestion
     {
         [JsonPropertyName("category")]
         public string? Category { get; set; } 
