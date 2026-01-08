@@ -20,19 +20,19 @@ else if (showResult)
 }
 else
 {
-    var q = questions[currentIndex];
+    var quest = questions[currentIndex];
 
     <p><strong>Spørgsmål @((currentIndex + 1)) / @questions.Count</strong></p>
-    <p>@q.Question</p>
+    <p>@quest.Question</p>
 
     <div class="answers">
-        @for (int i = 0; i < q.Options.Count; i++)
+        @for (int i = 0; i < quest.Options.Count; i++)
         {
             var index = i;
 
             <button class="btn answer-btn"
                     @onclick="() => AnswerAndAdvance(index)">
-                @q.Options[index].Text
+                @quest.Options[index].Text
             </button>
         }
     </div>

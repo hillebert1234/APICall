@@ -6,7 +6,7 @@ namespace APICall
     public class APIService
     {
         private readonly HttpClient _httpClient;
-        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        private static readonly JsonSerializerOptions _jsonOptions = new()
         {
             PropertyNameCaseInsensitive = true
         };
@@ -16,124 +16,106 @@ namespace APICall
             _httpClient = httpClient;
         }
 
-        public async Task<List<Diesel>> GetDieselDataAsync()
+        // ---------------------------
+        // GENERISK HJÆLPEMETODE
+        // ---------------------------
+        private async Task<List<T>> GetListAsync<T>(string url)
         {
             try
             {
-                var response = await _httpClient.GetAsync("https://opgaver.mercantec.tech/Opgaver/Diesel");
-                if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    var result = JsonSerializer.Deserialize<List<Diesel>>(json, _jsonOptions);
-                    return result ?? new List<Diesel>();
-                }
-                else
+                var response = await _httpClient.GetAsync(url);
+
+                if (!response.IsSuccessStatusCode)
                 {
                     Console.WriteLine($"Fejl: {response.StatusCode}");
-                    return new List<Diesel>();
+                    return new List<T>();
                 }
+
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<List<T>>(json, _jsonOptions) ?? new List<T>();
             }
-            catch (HttpRequestException ex)
+            catch (Exception ex)
             {
-                Console.WriteLine($"Netværksfejl: {ex.Message}");
-                return new List<Diesel>();
+                Console.WriteLine($"Fejl ved kald til {url}: {ex.Message}");
+                return new List<T>();
             }
         }
 
-        public async Task<List<Gas>> GetGasDataAsync()
-        {
-            try
-            {
-                var response = await _httpClient.GetAsync("https://opgaver.mercantec.tech/Opgaver/Miles95");
-                if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    var result = JsonSerializer.Deserialize<List<Gas>>(json, _jsonOptions);
-                    return result ?? new List<Gas>();
-                }
-                else
-                {
-                    Console.WriteLine($"Fejl: {response.StatusCode}");
-                    return new List<Gas>();
-                }
-            }
-            catch (HttpRequestException ex)
-            {
-                Console.WriteLine($"Netværksfejl: {ex.Message}");
-                return new List<Gas>();
-            }
-        }
+        // ---------------------------
+        // DIESEL
+        // ---------------------------
+        public Task<List<Diesel>> GetDieselDataAsync() =>
+            GetListAsync<Diesel>("https://opgaver.mercantec.tech/Opgaver/Diesel");
 
+        // ---------------------------
+        // GAS
+        // ---------------------------
+        public Task<List<Gas>> GetGasDataAsync() =>
+            GetListAsync<Gas>("https://opgaver.mercantec.tech/Opgaver/Miles95");
+
+        // ---------------------------
+        // TRIVIA QUIZ
+        // ---------------------------
         public async Task<List<QuizQuestion>> GetTriviaAsync(int amount = 10)
         {
             try
             {
                 var url = $"https://opentdb.com/api.php?amount={amount}";
-                using var response = await _httpClient.GetAsync(url);
-                if (!response.IsSuccessStatusCode)
-                {
-                    Console.WriteLine($"Fejl: {response.StatusCode}");
-                    return new List<QuizQuestion>();
-                }
+                var response = await _httpClient.GetAsync(url);
 
-                await using var stream = await response.Content.ReadAsStreamAsync();
-                var dto = await JsonSerializer.DeserializeAsync<OpenTdbResponse>(stream, _jsonOptions)
+                if (!response.IsSuccessStatusCode)
+                    return new List<QuizQuestion>();
+
+                var stream = await response.Content.ReadAsStreamAsync();
+                var data = await JsonSerializer.DeserializeAsync<OpenTdbResponse>(stream, _jsonOptions)
                           ?? new OpenTdbResponse();
 
-                if (dto.ResponseCode != 0 || dto.Results.Count == 0)
-                {
+                if (data.ResponseCode != 0 || data.Results.Count == 0)
                     return new List<QuizQuestion>();
-                }
 
                 var rnd = new Random();
-                var list = new List<QuizQuestion>(dto.Results.Count);
+                var list = new List<QuizQuestion>();
 
-                foreach (var q in dto.Results)
+                foreach (var question in data.Results)
                 {
                     var options = new List<QuizAnswerOption>
                     {
-                    new QuizAnswerOption
-                    {
-                        Text = HtmlUtil.Decode(q.CorrectAnswer),
-                        IsCorrect = true
-                    }
-                };
+                        new QuizAnswerOption
+                        {
+                            Text = HtmlUtil.Decode(question.CorrectAnswer),
+                            IsCorrect = true
+                        }
+                    };
 
                     options.AddRange(
-                        q.IncorrectAnswers.Select(a => new QuizAnswerOption
+                        question.IncorrectAnswers.Select(a => new QuizAnswerOption
                         {
                             Text = HtmlUtil.Decode(a),
                             IsCorrect = false
                         })
                     );
 
-                    // Shuffle svarene
+                    // Shuffle
                     for (int i = options.Count - 1; i > 0; i--)
                     {
                         int j = rnd.Next(i + 1);
                         (options[i], options[j]) = (options[j], options[i]);
                     }
 
-                    var question = new QuizQuestion
+                    list.Add(new QuizQuestion
                     {
-                        Category = HtmlUtil.Decode(q.Category),
-                        Difficulty = HtmlUtil.Decode(q.Difficulty),
-                        Question = HtmlUtil.Decode(q.Question),
+                        Category = HtmlUtil.Decode(question.Category),
+                        Difficulty = HtmlUtil.Decode(question.Difficulty),
+                        Question = HtmlUtil.Decode(question.Question),
                         Options = options
-                    };
-
-                    list.Add(question);
+                    });
                 }
+
                 return list;
             }
-            catch (HttpRequestException ex)
+            catch (Exception ex)
             {
-                Console.WriteLine($"Netværksfejl: {ex.Message}");
-                return new List<QuizQuestion>();
-            }
-            catch (JsonException ex)
-            {
-                Console.WriteLine($"JSON-fejl: {ex.Message}");
+                Console.WriteLine($"Trivia fejl: {ex.Message}");
                 return new List<QuizQuestion>();
             }
         }
