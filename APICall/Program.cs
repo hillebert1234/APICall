@@ -13,7 +13,6 @@ namespace APICall
             // Add services to the container.
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
-
             builder.Services.AddBlazorBootstrap();
 
             var app = builder.Build();

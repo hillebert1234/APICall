@@ -125,12 +125,12 @@ else
             .OrderBy(g => g.Date)
             .ToList();
 
-        BuildDieselChart();
-        BuildGasChart();
+        /*BuildDieselChart();
+        BuildGasChart();*/
     }
 
     // Init charts når DOM er klar (krav i BB charts)
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    /*protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && dieselChartData is not null && gasChartData is not null)
         {
@@ -207,5 +207,5 @@ else
         };
         gasChartOptions.Plugins.Title.Text = "Benzin – prisudvikling";
         gasChartOptions.Plugins.Title.Display = true;
-    }
+    }*/
 }
