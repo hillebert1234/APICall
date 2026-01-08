@@ -1,0 +1,172 @@
+﻿@page "/quiz"
+@using APICall.Components.Models
+@inject APICall.APIService Api
+
+<h3>Quiz</h3>
+
+@if (isLoading)
+{
+    <p>Henter spørgsmål…</p>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+else if (questions.Count == 0)
+{
+    <p>Ingen spørgsmål fundet.</p>
+}
+else if (showResult)
+{
+    <p>Du fik <strong>@score</strong> ud af <strong>@questions.Count</strong> rigtige.</p>
+    <button class="btn btn-primary" type="button" @onclick="Reload">Prøv igen</button>
+}
+else
+{
+    @* Sikker bounds-check *@
+    var canRender = currentIndex >= 0 && currentIndex < questions.Count;
+
+    if (!canRender)
+    {
+        <div class="alert alert-warning">Uventet tilstand — prøv at genindlæse quizzen.</div>
+        <button class="btn btn-secondary" type="button" @onclick="Reload">Genindlæs</button>
+    }
+    else
+    {
+        @* Tving re-opbygning af spørgs­målsblokken ved index-skift *@
+        <div @key="currentIndex">
+            @{
+                var q = questions[currentIndex];
+            }
+
+            <p><strong>Spørgsmål @((currentIndex + 1)) / @questions.Count</strong></p>
+            <p>@q.Question</p>
+
+            @if (q.Options == null || q.Options.Count == 0)
+            {
+                <div class="alert alert-warning">Dette spørgsmål mangler svarmuligheder. Springes over.</div>
+                <button class="btn btn-primary" type="button" @onclick="Next">Næste</button>
+            }
+            else
+            {
+                <!-- Svarmuligheder som knapper -->
+                <div class="answers">
+                    @for (int i = 0; i < q.Options.Count; i++)
+                    {
+                        var opt = q.Options[i];
+                        <button class="btn answer-btn"
+                                type="button"
+                                @onclick="() => AnswerAndAdvance(i)">
+                            @opt.Text
+                        </button>
+                    }
+                </div>
+
+                <div style="margin-top: 0.75rem;">
+                    <button class="btn btn-secondary" type="button" disabled="@(currentIndex == 0)" @onclick="Prev">Tilbage</button>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private List<QuizQuestion> questions = new();
+    private List<int?> selections = new();
+    private int currentIndex = 0;
+    private int score = 0;
+    private bool isLoading = true;
+    private bool showResult = false;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Reload();
+    }
+
+    private async Task Reload()
+    {
+        isLoading = true;
+        error = null;
+        showResult = false;
+        currentIndex = 0;
+        score = 0;
+
+        try
+        {
+            questions = await Api.GetTriviaAsync(10);
+            Console.WriteLine($"[Quiz] Hentet {questions.Count} spørgsmål.");
+            selections = Enumerable.Repeat<int?>(null, questions.Count).ToList();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void Prev()
+    {
+        if (currentIndex > 0)
+        {
+            currentIndex--;
+            StateHasChanged();
+        }
+    }
+
+    private void Next()
+    {
+        if (currentIndex == questions.Count - 1)
+        {
+            // Sidste spørgsmål => vis resultat
+            score = 0;
+            for (int i = 0; i < questions.Count; i++)
+            {
+                var sel = selections[i];
+                if (sel.HasValue && questions[i].Options[sel.Value].IsCorrect)
+                    score++;
+            }
+            showResult = true;
+            StateHasChanged();
+        }
+        else
+        {
+            currentIndex++;
+            StateHasChanged();
+        }
+    }
+
+    // Klik på en svarmulighed => gem valg og gå videre automatisk
+    private void AnswerAndAdvance(int optionIndex)
+    {
+        if (currentIndex < 0 || currentIndex >= questions.Count)
+        {
+            Console.WriteLine("[Quiz] FEJL: currentIndex out of range.");
+            return;
+        }
+
+        selections[currentIndex] = optionIndex;
+
+        if (currentIndex == questions.Count - 1)
+        {
+            // Beregn score og afslut
+            score = 0;
+            for (int i = 0; i < questions.Count; i++)
+            {
+                var sel = selections[i];
+                if (sel.HasValue && questions[i].Options[sel.Value].IsCorrect)
+                    score++;
+            }
+            showResult = true;
+        }
+        else
+        {
+            currentIndex++;
+        }
+
+        StateHasChanged(); // Tving re-render efter klik
+    }
+}
