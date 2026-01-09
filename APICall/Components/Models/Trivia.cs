@@ -3,7 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace APICall.Components.Models
 {
-    // DTO fra Open Trivia DB
     public class OpenTdbResponse
     {
         [JsonPropertyName("response_code")]

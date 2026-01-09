@@ -40,7 +40,7 @@ else
               (avoids the classic closure issue in loops).
             *@
             <button class="btn answer-btn"
-                    @onclick="() => AnswerAndAdvance(index)">
+                    @onclick="() => Answers(index)">
                 @quest.Options[index].Text
             </button>
         }
@@ -120,12 +120,12 @@ else
 
     // Records the user's choice for the current question and advances
     // (or shows the result if this was the last question)
-    private void AnswerAndAdvance(int optionIndex)
+    private void Answers(int optionIndex)
     {
-        var q = questions[currentIndex];
+        var quest = questions[currentIndex];
 
         // Guard against invalid clicks or out-of-range indices
-        if (optionIndex < 0 || optionIndex >= q.Options.Count)
+        if (optionIndex < 0 || optionIndex >= quest.Options.Count)
             return;
 
         // Save the selected option for the current question

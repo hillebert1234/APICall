@@ -104,12 +104,12 @@ namespace APICall
             // Network-related errors specific to this call: return empty list for resilience.
             catch (HttpRequestException ex)
             {
-                Console.WriteLine($"Trivia request error: {ex.Message}");
+                Console.WriteLine($"Network error: {ex.Message}");
                 return new List<QuizQuestion>();
             }
             catch (JsonException ex)
             {
-                Console.WriteLine($"Trivia request error: {ex.Message}");
+                Console.WriteLine($"Json error: {ex.Message}");
                 return new List<QuizQuestion>();
             }
         }
@@ -141,13 +141,13 @@ namespace APICall
             // Network-related errors: DNS, connection refused, TLS, etc.
             catch (HttpRequestException ex)
             {
-                Console.WriteLine($"HTTP Request error calling {url}: {ex.Message}");
+                Console.WriteLine($"Network error: {ex.Message}");
                 return new List<T>();
             }
             // JSON parse/format errors: malformed JSON or mismatched schema for List<T>.
             catch (JsonException ex)
             {
-                Console.WriteLine($"JSON error calling {url}: {ex.Message}");
+                Console.WriteLine($"Json error: {ex.Message}");
                 return new List<T>();
             }
         }
